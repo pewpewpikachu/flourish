@@ -1012,3 +1012,279 @@
 
   if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
 })();
+
+      <!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout · Flourish Joy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: two columns on desktop (form left, sticky order summary right); stacks on phones with the summary first. */
+:root{
+  --bg:#FBF1F1; --surface:#FFFFFF; --ink:#2A2530; --muted:#6E6574; --line:#EBD9DC;
+  --accent:#B83A5A; --accent-ink:#FFFFFF; --moss:#4F6B47; --error:#B3261E;
+  --font-display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --font-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1D1820; --surface:#272029; --ink:#F5E9EC; --muted:#B5A8B9; --line:#3B3140;
+    --accent:#E8708F; --accent-ink:#2A1018; --moss:#9DBF92; --error:#FF8A80; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:var(--font-display);margin:0;line-height:1.15;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{border-bottom:1px solid var(--line)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:14px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:1.25rem;color:inherit;text-decoration:none}
+.brand span{color:var(--accent)}
+.back{color:var(--muted);font-size:.9rem}
+.crumbs{display:flex;gap:8px;font-size:.85rem;color:var(--muted);padding-block:22px 4px;flex-wrap:wrap}
+.crumbs b{color:var(--ink);font-weight:600}
+h1{font-size:clamp(1.8rem,5vw,2.4rem);padding-bottom:20px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:32px;align-items:start;padding-bottom:56px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+form{display:grid;gap:20px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px;min-width:0}
+legend{font-family:var(--font-display);font-weight:700;font-size:1.1rem;padding:0 0 4px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.85rem;font-weight:500}
+.field input,.field select{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);width:100%;min-width:0}
+.field input[aria-invalid="true"]{border-color:var(--error)}
+.err{color:var(--error);font-size:.8rem;min-height:1.1em;margin:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opt{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;background:var(--bg)}
+.opt:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.opt input{accent-color:var(--accent);width:18px;height:18px;margin:0}
+.opt .t{flex:1;min-width:0}
+.opt .t small{display:block;color:var(--muted);font-size:.8rem}
+.opt .p{font-weight:600;font-variant-numeric:tabular-nums}
+.demo{font-size:.82rem;color:var(--muted);margin:0;border:1px dashed var(--line);border-radius:8px;padding:10px 12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:14px 18px;width:100%;cursor:pointer;text-decoration:none}
+.btn:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+
+.summary{position:sticky;top:16px;display:grid;gap:14px}
+.summary h2{font-size:1.1rem}
+.lines{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.li{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center}
+.thumb{width:52px;height:52px;border-radius:10px;background:var(--line);overflow:hidden;position:relative}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb em{position:absolute;top:-6px;right:-6px;background:var(--ink);color:var(--bg);font-style:normal;font-size:.72rem;font-weight:600;min-width:20px;height:20px;border-radius:99px;display:grid;place-items:center}
+.li .n{font-weight:600;font-size:.95rem}
+.li .s{font-size:.8rem;color:var(--muted)}
+.li .pr{font-weight:600;font-variant-numeric:tabular-nums}
+.promo{display:flex;gap:8px}
+.promo input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg)}
+.promo button{border:1px solid var(--line);background:transparent;border-radius:8px;padding:0 14px;font-weight:600;cursor:pointer}
+.pmsg{font-size:.82rem;margin:0;min-height:1.2em;color:var(--error)}
+.pmsg.ok{color:var(--moss)}
+.tot{display:grid;gap:6px;font-variant-numeric:tabular-nums;font-size:.95rem}
+.tot div{display:flex;justify-content:space-between}
+.tot .g{font-weight:700;font-size:1.2rem;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+.sample{font-size:.82rem;color:var(--muted);margin:0}
+.empty{display:grid;gap:12px;justify-items:start}
+
+.done{max-width:620px;margin:0 auto;padding-block:48px 64px;display:grid;gap:18px;text-align:center;justify-items:center}
+.done h1{padding:0}
+.done p{margin:0;color:var(--muted)}
+.order{font-family:var(--font-display);font-weight:700;letter-spacing:.06em;font-size:1.3rem;border:1px dashed var(--line);border-radius:10px;padding:8px 16px;background:var(--surface)}
+.recap{text-align:left;width:100%;display:grid;gap:14px}
+.recap dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:.92rem}
+.recap dt{color:var(--muted)}
+.recap dd{margin:0;min-width:0;overflow-wrap:anywhere}
+
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr;gap:20px}
+  .summary{position:static;order:-1}
+}
+@media (max-width:420px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <a class="brand" href="index.html">Flourish <span>Joy</span></a>
+  <a class="back" href="index.html">&larr; Back to shop</a>
+</div></header>
+
+<main class="wrap" id="app"></main>
+
+<script>
+/* Reads the bag saved by bloom-bag.js (same storage key). */
+var STORAGE_KEY = 'fj-bloom-bag';
+var CURRENCY = '$', FREE_SHIPPING = 60, STANDARD = 4.5, EXPRESS = 9;
+var PROMOS = { FLOURISH10: 10 };
+var SAMPLE = [
+  { id: 'peony', name: 'Peony Flush', price: 38, size: 'M', detail: 'Almond', color: '#F2B8C6', qty: 1 },
+  { id: 'clover', name: 'Wild Clover', price: 36, size: 'S', detail: 'Square', color: '#8FB486', qty: 1 }
+];
+
+var items = [], usingSample = false, promo = null, promoMsg = '', promoOk = false, shipMode = 'standard', placed = null;
+var form = { name:'', email:'', phone:'', address:'', city:'', state:'', zip:'', pay:'card' };
+
+try {
+  var raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  if (Array.isArray(raw)) items = raw.filter(function (l) { return l && l.id && l.qty > 0; });
+} catch (e) {}
+if (!items.length) { items = SAMPLE.map(function (l) { return Object.assign({}, l); }); usingSample = true; }
+
+function $(s) { return document.querySelector(s); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+function money(n) { return CURRENCY + n.toFixed(2); }
+
+function totals() {
+  var count = 0, sub = 0;
+  items.forEach(function (l) { count += l.qty; sub += l.qty * l.price; });
+  var disc = promo ? Math.round(sub * PROMOS[promo]) / 100 : 0;
+  var after = sub - disc;
+  var ship = shipMode === 'express' ? EXPRESS : (after >= FREE_SHIPPING ? 0 : STANDARD);
+  return { count: count, sub: sub, disc: disc, ship: ship, total: after + ship };
+}
+
+function summaryHTML() {
+  var t = totals();
+  var lines = items.map(function (l) {
+    var sub = [l.detail, l.size ? 'Size ' + l.size : ''].filter(Boolean).join(' · ');
+    var inner = l.image ? '<img src="' + esc(l.image) + '" alt="">' : '';
+    var bg = !l.image && l.color ? ' style="background:' + esc(l.color) + '"' : '';
+    return '<li class="li"><span class="thumb"' + bg + '>' + inner + '<em>' + l.qty + '</em></span>' +
+      '<div><div class="n">' + esc(l.name) + '</div><div class="s">' + esc(sub) + '</div></div>' +
+      '<span class="pr">' + money(l.price * l.qty) + '</span></li>';
+  }).join('');
+  return '<h2>Order summary</h2><ul class="lines">' + lines + '</ul>' +
+    '<div class="promo"><input id="promo" type="text" placeholder="Promo code" aria-label="Promo code" value="' + esc(promo || '') + '"><button type="button" id="applyPromo">Apply</button></div>' +
+    '<p class="pmsg' + (promoOk ? ' ok' : '') + '">' + esc(promoMsg) + '</p>' +
+    '<div class="tot"><div><span>Subtotal</span><span>' + money(t.sub) + '</span></div>' +
+    (t.disc ? '<div><span>Promo ' + esc(promo) + '</span><span>&minus;' + money(t.disc) + '</span></div>' : '') +
+    '<div><span>Shipping</span><span>' + (t.ship ? money(t.ship) : 'Free') + '</span></div>' +
+    '<div class="g"><span>Total</span><span>' + money(t.total) + '</span></div></div>' +
+    (usingSample ? '<p class="sample">Your bag was empty, so these are sample items for the demo.</p>' : '');
+}
+
+function field(id, label, type, auto, extra) {
+  return '<div class="field"><label for="' + id + '">' + label + '</label>' +
+    '<input id="' + id + '" name="' + id + '" type="' + type + '" autocomplete="' + auto + '" value="' + esc(form[id]) + '"' + (extra || '') + '>' +
+    '<p class="err" id="e-' + id + '"></p></div>';
+}
+
+function render() {
+  var app = $('#app');
+  if (placed) { renderDone(app); return; }
+  var t = totals();
+  app.innerHTML =
+    '<div class="crumbs"><span>Bag</span><span>/</span><b>Details</b><span>/</span><span>Confirmation</span></div>' +
+    '<h1>Checkout</h1><div class="layout">' +
+    '<form id="form" novalidate>' +
+      '<div class="panel"><fieldset><legend>Contact</legend>' +
+        field('name', 'Full name', 'text', 'name') +
+        '<div class="two">' + field('email', 'Email', 'email', 'email') + field('phone', 'Phone (optional)', 'tel', 'tel') + '</div>' +
+      '</fieldset></div>' +
+      '<div class="panel"><fieldset><legend>Shipping address</legend>' +
+        field('address', 'Address', 'text', 'street-address') +
+        '<div class="two">' + field('city', 'City', 'text', 'address-level2') + field('state', 'State', 'text', 'address-level1') + '</div>' +
+        field('zip', 'PIN / ZIP code', 'text', 'postal-code', ' inputmode="numeric"') +
+      '</fieldset></div>' +
+      '<div class="panel"><fieldset><legend>Delivery</legend>' +
+        '<label class="opt"><input type="radio" name="ship" value="standard"' + (shipMode === 'standard' ? ' checked' : '') + '><span class="t">Standard<small>5 to 7 days</small></span><span class="p">' + (totalsFor('standard') ? money(totalsFor('standard')) : 'Free') + '</span></label>' +
+        '<label class="opt"><input type="radio" name="ship" value="express"' + (shipMode === 'express' ? ' checked' : '') + '><span class="t">Express<small>2 to 3 days</small></span><span class="p">' + money(EXPRESS) + '</span></label>' +
+      '</fieldset></div>' +
+      '<div class="panel"><fieldset><legend>Payment</legend>' +
+        '<label class="opt"><input type="radio" name="pay" value="card"' + (form.pay === 'card' ? ' checked' : '') + '><span class="t">Card<small>Demo only</small></span></label>' +
+        '<label class="opt"><input type="radio" name="pay" value="upi"' + (form.pay === 'upi' ? ' checked' : '') + '><span class="t">UPI<small>Demo only</small></span></label>' +
+        '<label class="opt"><input type="radio" name="pay" value="cod"' + (form.pay === 'cod' ? ' checked' : '') + '><span class="t">Cash on delivery<small>Demo only</small></span></label>' +
+        '<p class="demo">This is a demo storefront. No card details are collected and no payment is taken.</p>' +
+      '</fieldset></div>' +
+      '<button class="btn" type="submit" id="place">Place demo order &middot; ' + money(t.total) + '</button>' +
+    '</form>' +
+    '<aside class="panel summary" aria-label="Order summary" id="summary">' + summaryHTML() + '</aside></div>';
+}
+function totalsFor(mode) {
+  var s = shipMode; shipMode = mode; var v = totals().ship; shipMode = s; return v;
+}
+
+function refreshSummary() {
+  $('#summary').innerHTML = summaryHTML();
+  $('#place').innerHTML = 'Place demo order &middot; ' + money(totals().total);
+}
+function captureForm() {
+  ['name','email','phone','address','city','state','zip'].forEach(function (k) { var el = document.getElementById(k); if (el) form[k] = el.value; });
+}
+
+function validate() {
+  captureForm();
+  var errs = {};
+  if (!form.name.trim()) errs.name = 'Enter your full name.';
+  if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errs.email = 'Enter an email like name@example.com.';
+  if (form.phone.trim() && !/^[0-9+()\-\s]{7,16}$/.test(form.phone.trim())) errs.phone = 'Enter a valid phone number.';
+  if (!form.address.trim()) errs.address = 'Enter your street address.';
+  if (!form.city.trim()) errs.city = 'Enter your city.';
+  if (!form.state.trim()) errs.state = 'Enter your state.';
+  if (!/^[A-Za-z0-9\- ]{4,10}$/.test(form.zip.trim())) errs.zip = 'Enter a valid PIN or ZIP code.';
+  ['name','email','phone','address','city','state','zip'].forEach(function (k) {
+    var inp = document.getElementById(k), msg = document.getElementById('e-' + k);
+    if (!inp) return;
+    inp.setAttribute('aria-invalid', errs[k] ? 'true' : 'false');
+    msg.textContent = errs[k] || '';
+  });
+  var first = Object.keys(errs)[0];
+  if (first) { document.getElementById(first).focus(); return false; }
+  return true;
+}
+
+function renderDone(app) {
+  var p = placed, payLabel = { card: 'Card (demo)', upi: 'UPI (demo)', cod: 'Cash on delivery (demo)' }[form.pay];
+  app.innerHTML =
+    '<div class="done"><h1>Thank you, ' + esc(form.name.split(' ')[0]) + '.</h1>' +
+    '<p>Your demo order is placed. We would send a confirmation to ' + esc(form.email) + '.</p>' +
+    '<div class="order">' + esc(p.no) + '</div>' +
+    '<div class="panel recap"><dl>' +
+      '<dt>Ship to</dt><dd>' + esc(form.name) + ', ' + esc(form.address) + ', ' + esc(form.city) + ', ' + esc(form.state) + ' ' + esc(form.zip) + '</dd>' +
+      '<dt>Delivery</dt><dd>' + (p.ship === 'express' ? 'Express, 2 to 3 days' : 'Standard, 5 to 7 days') + '</dd>' +
+      '<dt>Payment</dt><dd>' + payLabel + '</dd>' +
+      '<dt>Total</dt><dd><b>' + money(p.total) + '</b></dd></dl>' +
+      '<ul class="lines">' + p.items.map(function (l) { return '<li class="li"><span class="thumb"' + (l.color ? ' style="background:' + esc(l.color) + '"' : '') + '><em>' + l.qty + '</em></span><div><div class="n">' + esc(l.name) + '</div><div class="s">' + esc([l.detail, l.size ? 'Size ' + l.size : ''].filter(Boolean).join(' · ')) + '</div></div><span class="pr">' + money(l.price * l.qty) + '</span></li>'; }).join('') + '</ul></div>' +
+    '<a class="btn" href="index.html" style="max-width:320px">Keep shopping</a>' +
+    '<p>No payment was taken. This is a demo storefront.</p></div>';
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', function (e) {
+  if (e.target.id === 'applyPromo') {
+    var v = ($('#promo').value || '').trim().toUpperCase();
+    if (v && PROMOS[v] != null) { promo = v; promoMsg = PROMOS[v] + '% off applied.'; promoOk = true; }
+    else if (!v) { promo = null; promoMsg = ''; promoOk = false; }
+    else { promo = null; promoMsg = 'That code is not valid.'; promoOk = false; }
+    refreshSummary();
+  }
+});
+document.addEventListener('change', function (e) {
+  if (e.target.name === 'ship') { shipMode = e.target.value; refreshSummary(); }
+  if (e.target.name === 'pay') { form.pay = e.target.value; }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && e.target.id === 'promo') { e.preventDefault(); $('#applyPromo').click(); }
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'form') return;
+  e.preventDefault();
+  if (!validate()) return;
+  var t = totals();
+  placed = { no: 'FJ-' + Math.floor(10000 + Math.random() * 90000), items: items.slice(), total: t.total, ship: shipMode };
+  if (!usingSample) { try { localStorage.removeItem(STORAGE_KEY); } catch (err) {} }
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
+      
