@@ -789,3 +789,226 @@
 </script>
 </body>
 </html>
+
+/*!
+ * Bloom Bag: drop-in cart drawer for Flourish Joy.
+ * One file, no dependencies. It injects its own styles and markup.
+ *
+ * 1. Add before </body>:   <script src="bloom-bag.js"></script>
+ * 2. Header button:        <button data-bag-open>Bloom Bag <span data-bag-count>0</span></button>
+ * 3. Each product button:  <button data-add-to-bag
+ *                             data-id="peony" data-name="Peony Flush" data-price="38"
+ *                             data-size="M" data-detail="Almond" data-color="#F2B8C6"
+ *                             data-image="img/peony.jpg">Add to Bloom Bag</button>
+ *    (data-size, data-detail, data-color and data-image are optional.)
+ *
+ * JS API:  BloomBag.add({id,name,price,size,detail,color,image}) · .open() · .close() · .clear() · .items()
+ * Events:  "bloombag:change"   detail = {items, subtotal}
+ *          "bloombag:checkout" detail = {items, subtotal, discount, shipping, total}
+ *             call event.preventDefault() to run your own checkout; otherwise a demo confirmation shows.
+ *
+ * Optional config (define before this script):
+ *   window.BLOOM_BAG_CONFIG = { currency:'$', freeShipping:60, shipping:4.5, promos:{ FLOURISH10:10 }, storageKey:'fj-bloom-bag' };
+ * Theme: override the --fjb-* variables on :root to match your site.
+ */
+(function () {
+  'use strict';
+  if (window.BloomBag) return;
+
+  var cfg = Object.assign({ currency: '$', freeShipping: 60, shipping: 4.5, promos: { FLOURISH10: 10 }, storageKey: 'fj-bloom-bag' }, window.BLOOM_BAG_CONFIG || {});
+  var items = [], promo = null, promoMsg = '', promoOk = false, view = 'bag', orderNo = '', lastFocus = null;
+
+  try { var saved = JSON.parse(localStorage.getItem(cfg.storageKey) || '[]'); if (Array.isArray(saved)) items = saved.filter(function (l) { return l && l.id && l.qty > 0; }); } catch (e) {}
+  function persist() { try { localStorage.setItem(cfg.storageKey, JSON.stringify(items)); } catch (e) {} }
+
+  var css = '\
+:root{--fjb-bg:#FBF1F1;--fjb-surface:#fff;--fjb-ink:#2A2530;--fjb-muted:#6E6574;--fjb-line:#EBD9DC;--fjb-accent:#B83A5A;--fjb-accent-ink:#fff;--fjb-moss:#4F6B47;--fjb-shadow:rgba(42,37,48,.3);--fjb-font:inherit;--fjb-display:inherit}\
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fjb-bg:#1D1820;--fjb-surface:#272029;--fjb-ink:#F5E9EC;--fjb-muted:#B5A8B9;--fjb-line:#3B3140;--fjb-accent:#E8708F;--fjb-accent-ink:#2A1018;--fjb-moss:#9DBF92;--fjb-shadow:rgba(0,0,0,.6)}}\
+.fjb-scrim{position:fixed;inset:0;background:var(--fjb-shadow);z-index:99998;opacity:0;transition:opacity .2s}\
+.fjb-scrim.on{opacity:1}\
+.fjb{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);z-index:99999;background:var(--fjb-bg);color:var(--fjb-ink);font-family:var(--fjb-font);font-size:16px;line-height:1.5;display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .25s ease,visibility 0s .25s;box-shadow:-12px 0 40px var(--fjb-shadow);box-sizing:border-box}\
+.fjb *{box-sizing:border-box}\
+.fjb.open{transform:none;visibility:visible;transition:transform .25s ease}\
+.fjb button,.fjb input{font:inherit;color:inherit}\
+.fjb button{cursor:pointer}\
+.fjb :focus-visible{outline:3px solid var(--fjb-accent);outline-offset:2px}\
+.fjb-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--fjb-line)}\
+.fjb-head h2{margin:0;font-family:var(--fjb-display);font-size:1.25rem}\
+.fjb-x{width:36px;height:36px;border-radius:50%;border:1px solid var(--fjb-line);background:var(--fjb-surface);font-size:1.2rem;line-height:1}\
+.fjb-body{flex:1;overflow-y:auto;padding:8px 18px}\
+.fjb-foot{border-top:1px solid var(--fjb-line);padding:14px 18px calc(14px + env(safe-area-inset-bottom,0px));display:grid;gap:10px;background:var(--fjb-surface)}\
+.fjb-foot:empty{display:none}\
+.fjb-empty,.fjb-done{text-align:center;padding:48px 8px;display:grid;gap:12px;justify-items:center;color:var(--fjb-muted)}\
+.fjb-empty h3,.fjb-done h3{margin:0;color:var(--fjb-ink);font-family:var(--fjb-display);font-size:1.3rem}\
+.fjb-done p,.fjb-empty p{margin:0}\
+.fjb-order{font-weight:700;letter-spacing:.06em;border:1px dashed var(--fjb-line);border-radius:8px;padding:6px 12px;background:var(--fjb-surface);color:var(--fjb-ink)}\
+.fjb-line{display:grid;grid-template-columns:60px 1fr auto;gap:12px;padding:14px 0;border-bottom:1px solid var(--fjb-line);align-items:start}\
+.fjb-thumb{width:60px;height:60px;border-radius:10px;background:var(--fjb-line);overflow:hidden;display:block}\
+.fjb-thumb img{width:100%;height:100%;object-fit:cover;display:block}\
+.fjb-name{font-weight:600}\
+.fjb-sub{font-size:.82rem;color:var(--fjb-muted)}\
+.fjb-qty{display:inline-flex;align-items:center;border:1px solid var(--fjb-line);border-radius:8px;margin-top:8px;background:var(--fjb-surface)}\
+.fjb-qty button{width:30px;height:30px;border:0;background:transparent;font-size:1.05rem}\
+.fjb-qty span{min-width:26px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}\
+.fjb-right{text-align:right;display:grid;gap:8px;justify-items:end;font-weight:600;font-variant-numeric:tabular-nums}\
+.fjb-link{background:none;border:0;padding:0;color:var(--fjb-muted);font-size:.8rem;font-weight:400;text-decoration:underline}\
+.fjb-ship{display:grid;gap:6px;font-size:.85rem;color:var(--fjb-muted)}\
+.fjb-meter{height:6px;border-radius:99px;background:var(--fjb-line);overflow:hidden}\
+.fjb-meter i{display:block;height:100%;background:var(--fjb-moss);border-radius:99px;transition:width .3s}\
+.fjb-promo{display:flex;gap:8px}\
+.fjb-promo input{flex:1;min-width:0;border:1px solid var(--fjb-line);border-radius:8px;padding:9px 12px;background:var(--fjb-bg)}\
+.fjb-promo button{border:1px solid var(--fjb-line);background:transparent;border-radius:8px;padding:0 14px;font-weight:600}\
+.fjb-msg{font-size:.82rem;margin:0;min-height:1.2em;color:var(--fjb-accent)}\
+.fjb-msg.ok{color:var(--fjb-moss)}\
+.fjb-tot{display:grid;gap:4px;font-size:.92rem;font-variant-numeric:tabular-nums}\
+.fjb-tot div{display:flex;justify-content:space-between}\
+.fjb-tot .g{font-weight:700;font-size:1.1rem;border-top:1px solid var(--fjb-line);padding-top:8px;margin-top:4px}\
+.fjb-btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:var(--fjb-accent);color:var(--fjb-accent-ink);font-weight:600;padding:12px 16px;width:100%}\
+.fjb-btn:hover{filter:brightness(1.07)}\
+.fjb-note{font-size:.78rem;color:var(--fjb-muted);margin:0;text-align:center}\
+.fjb-toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--fjb-ink);color:var(--fjb-bg);padding:10px 16px;border-radius:999px;font:500 .9rem/1.3 var(--fjb-font);opacity:0;pointer-events:none;transition:.25s;z-index:100000;max-width:calc(100% - 32px)}\
+.fjb-toast.on{opacity:1;transform:translate(-50%,0)}\
+@keyframes fjb-bump{50%{transform:scale(1.35)}}\
+[data-bag-count].fjb-bump{display:inline-block;animation:fjb-bump .35s}\
+@media (prefers-reduced-motion:reduce){.fjb,.fjb-scrim,.fjb-toast{transition:none!important}[data-bag-count].fjb-bump{animation:none}}';
+
+  var style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
+
+  var scrim = document.createElement('div'); scrim.className = 'fjb-scrim'; scrim.hidden = true;
+  var drawer = document.createElement('aside'); drawer.className = 'fjb';
+  drawer.setAttribute('role', 'dialog'); drawer.setAttribute('aria-modal', 'true'); drawer.setAttribute('aria-label', 'Your Bloom Bag'); drawer.setAttribute('inert', '');
+  drawer.innerHTML = '<div class="fjb-head"><h2></h2><button class="fjb-x" type="button" aria-label="Close bag">&times;</button></div><div class="fjb-body"></div><div class="fjb-foot"></div>';
+  var toastEl = document.createElement('div'); toastEl.className = 'fjb-toast'; toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite');
+  function mount() { document.body.appendChild(scrim); document.body.appendChild(drawer); document.body.appendChild(toastEl); render(); counts(); }
+
+  var elTitle = drawer.querySelector('h2'), elBody = drawer.querySelector('.fjb-body'), elFoot = drawer.querySelector('.fjb-foot');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function money(n) { return cfg.currency + n.toFixed(2); }
+  function key(l) { return l.id + '|' + (l.size || ''); }
+
+  function totals() {
+    var count = 0, sub = 0;
+    items.forEach(function (l) { count += l.qty; sub += l.qty * l.price; });
+    var pct = promo ? cfg.promos[promo] : 0;
+    var discount = Math.round(sub * pct) / 100;
+    var after = sub - discount;
+    var shipping = count === 0 ? 0 : (after >= cfg.freeShipping ? 0 : cfg.shipping);
+    return { count: count, subtotal: sub, discount: discount, after: after, shipping: shipping, total: after + shipping };
+  }
+  function totalsHTML(t) {
+    return '<div class="fjb-tot"><div><span>Subtotal</span><span>' + money(t.subtotal) + '</span></div>' +
+      (t.discount ? '<div><span>Promo ' + esc(promo) + '</span><span>&minus;' + money(t.discount) + '</span></div>' : '') +
+      '<div><span>Shipping</span><span>' + (t.shipping ? money(t.shipping) : 'Free') + '</span></div>' +
+      '<div class="g"><span>Total</span><span>' + money(t.total) + '</span></div></div>';
+  }
+
+  function counts() {
+    var n = totals().count;
+    document.querySelectorAll('[data-bag-count]').forEach(function (el) { el.textContent = n; });
+  }
+  function bump() {
+    document.querySelectorAll('[data-bag-count]').forEach(function (el) { el.classList.remove('fjb-bump'); void el.offsetWidth; el.classList.add('fjb-bump'); });
+  }
+
+  function render() {
+    var t = totals();
+    if (view === 'done') {
+      elTitle.textContent = 'Order placed';
+      elBody.innerHTML = '<div class="fjb-done"><h3>Thank you, your sets are on the way.</h3><p>Demo order number</p><div class="fjb-order">' + esc(orderNo) + '</div><p>No payment was taken.</p></div>';
+      elFoot.innerHTML = '<button class="fjb-btn" type="button" data-fjb="close">Keep shopping</button>';
+      return;
+    }
+    elTitle.textContent = 'Your Bloom Bag';
+    if (!items.length) {
+      elBody.innerHTML = '<div class="fjb-empty"><h3>Your bag is empty</h3><p>Pick a set and it will wait for you here.</p><button class="fjb-btn" type="button" style="width:auto" data-fjb="close">Browse sets</button></div>';
+      elFoot.innerHTML = ''; return;
+    }
+    elBody.innerHTML = items.map(function (l, i) {
+      var thumb = l.image ? '<img src="' + esc(l.image) + '" alt="">' : '';
+      var bg = !l.image && l.color ? ' style="background:' + esc(l.color) + '"' : '';
+      var sub = [l.detail, l.size ? 'Size ' + l.size : ''].filter(Boolean).join(' · ');
+      return '<div class="fjb-line"><span class="fjb-thumb"' + bg + '>' + thumb + '</span>' +
+        '<div><div class="fjb-name">' + esc(l.name) + '</div>' + (sub ? '<div class="fjb-sub">' + esc(sub) + '</div>' : '') +
+        '<div class="fjb-qty"><button type="button" data-fjb="dec" data-i="' + i + '" aria-label="Decrease quantity of ' + esc(l.name) + '">&minus;</button><span>' + l.qty + '</span><button type="button" data-fjb="inc" data-i="' + i + '" aria-label="Increase quantity of ' + esc(l.name) + '">+</button></div></div>' +
+        '<div class="fjb-right"><span>' + money(l.price * l.qty) + '</span><button class="fjb-link" type="button" data-fjb="rm" data-i="' + i + '">Remove</button></div></div>';
+    }).join('');
+    var left = Math.max(0, cfg.freeShipping - t.after), pct = Math.min(100, t.after / cfg.freeShipping * 100);
+    elFoot.innerHTML =
+      '<div class="fjb-ship"><span>' + (left > 0 ? 'Add ' + money(left) + ' more for free shipping' : 'You have free shipping') + '</span><div class="fjb-meter"><i style="width:' + pct + '%"></i></div></div>' +
+      '<div class="fjb-promo"><input type="text" id="fjb-promo" placeholder="Promo code" aria-label="Promo code" value="' + esc(promo || '') + '"><button type="button" data-fjb="promo">Apply</button></div>' +
+      '<p class="fjb-msg' + (promoOk ? ' ok' : '') + '">' + esc(promoMsg) + '</p>' + totalsHTML(t) +
+      '<button class="fjb-btn" type="button" data-fjb="checkout">Checkout &middot; ' + money(t.total) + '</button>';
+  }
+
+  function changed() {
+    persist(); counts(); render();
+    var t = totals();
+    document.dispatchEvent(new CustomEvent('bloombag:change', { detail: { items: items.slice(), subtotal: t.subtotal } }));
+  }
+
+  var toastTimer;
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 1800); }
+
+  function open() {
+    lastFocus = document.activeElement; render();
+    drawer.removeAttribute('inert'); drawer.classList.add('open');
+    scrim.hidden = false; requestAnimationFrame(function () { scrim.classList.add('on'); });
+    drawer.querySelector('.fjb-x').focus();
+  }
+  function close() {
+    drawer.classList.remove('open'); drawer.setAttribute('inert', '');
+    scrim.classList.remove('on'); setTimeout(function () { scrim.hidden = true; }, 200);
+    if (view === 'done') { view = 'bag'; items = []; promo = null; promoMsg = ''; persist(); counts(); render(); }
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function add(p) {
+    if (!p || !p.id || !(+p.price >= 0)) return;
+    var item = { id: String(p.id), name: p.name || p.id, price: +p.price, size: p.size || '', detail: p.detail || '', color: p.color || '', image: p.image || '', qty: 1 };
+    var ex = items.filter(function (l) { return key(l) === key(item); })[0];
+    if (ex) ex.qty += 1; else items.push(item);
+    if (view === 'done') view = 'bag';
+    bump(); toast(item.name + (item.size ? ' (' + item.size + ')' : '') + ' added'); changed();
+  }
+
+  document.addEventListener('click', function (e) {
+    var addBtn = e.target.closest('[data-add-to-bag]');
+    if (addBtn) {
+      var d = addBtn.dataset;
+      add({ id: d.id, name: d.name, price: d.price, size: d.size, detail: d.detail, color: d.color, image: d.image });
+      if (d.openBag !== undefined) open();
+      return;
+    }
+    if (e.target.closest('[data-bag-open]')) { open(); return; }
+    if (e.target === scrim || e.target.closest('.fjb-x')) { close(); return; }
+    var b = e.target.closest('[data-fjb]'); if (!b || !drawer.contains(b)) return;
+    var a = b.dataset.fjb, i = +b.dataset.i;
+    if (a === 'close') close();
+    else if (a === 'inc') { items[i].qty++; changed(); }
+    else if (a === 'dec') { items[i].qty--; if (items[i].qty <= 0) items.splice(i, 1); changed(); }
+    else if (a === 'rm') { items.splice(i, 1); changed(); }
+    else if (a === 'promo') {
+      var v = (document.getElementById('fjb-promo').value || '').trim().toUpperCase();
+      if (v && cfg.promos[v] != null) { promo = v; promoMsg = cfg.promos[v] + '% off applied.'; promoOk = true; }
+      else if (!v) { promo = null; promoMsg = ''; promoOk = false; }
+      else { promo = null; promoMsg = 'That code is not valid.'; promoOk = false; }
+      render();
+    } else if (a === 'checkout') {
+      var t = totals();
+      var ev = new CustomEvent('bloombag:checkout', { cancelable: true, detail: { items: items.slice(), subtotal: t.subtotal, discount: t.discount, shipping: t.shipping, total: t.total } });
+      if (document.dispatchEvent(ev)) { orderNo = 'FJ-' + Math.floor(10000 + Math.random() * 90000); view = 'done'; render(); }
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) close();
+    if (e.key === 'Enter' && e.target && e.target.id === 'fjb-promo') { e.preventDefault(); drawer.querySelector('[data-fjb="promo"]').click(); }
+  });
+
+  window.BloomBag = {
+    add: add, open: open, close: close,
+    clear: function () { items = []; promo = null; promoMsg = ''; changed(); },
+    items: function () { return items.slice(); }
+  };
+
+  if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+})();
